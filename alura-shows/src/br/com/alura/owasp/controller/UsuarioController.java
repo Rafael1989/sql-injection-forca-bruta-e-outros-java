@@ -19,6 +19,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import br.com.alura.owasp.dao.UsuarioDao;
 import br.com.alura.owasp.model.Role;
 import br.com.alura.owasp.model.Usuario;
+import br.com.alura.owasp.retrofit.GoogleWebClient;
 
 @Controller
 @Transactional
@@ -26,6 +27,9 @@ public class UsuarioController {
 
 	@Autowired
 	private UsuarioDao dao;
+	
+	@Autowired
+	private GoogleWebClient googleWebClient;
 
 	@RequestMapping("/usuario")
 	public String usuario(Model model) {
@@ -56,8 +60,18 @@ public class UsuarioController {
 
 	@RequestMapping(value="/login",method=RequestMethod.POST)
 	public String login(@ModelAttribute("usuario") Usuario usuario,
-			RedirectAttributes redirect, Model model, HttpSession session) {
+			RedirectAttributes redirect, Model model, HttpSession session, HttpServletRequest request) throws IOException {
 
+		String recaptcha = request.getParameter("g-recaptcha-response");
+		if(googleWebClient.verifica(recaptcha)) {
+			return validaUsuario(usuario, redirect, model, session);
+		}
+		redirect.addFlashAttribute("mensagem","Por favor, clique no botão de recaptcha");
+		return "redirect:/usuario";
+
+	}
+
+	private String validaUsuario(Usuario usuario, RedirectAttributes redirect, Model model, HttpSession session) {
 		Usuario usuarioRetornado = dao.procuraUsuario(usuario);
 		model.addAttribute("usuario", usuarioRetornado);
 		if (usuarioRetornado == null) {
@@ -67,7 +81,6 @@ public class UsuarioController {
 
 		session.setAttribute("usuario", usuarioRetornado);
 		return "usuarioLogado";
-
 	}
 
 	@RequestMapping("/logout")
