@@ -1,6 +1,5 @@
 package br.com.alura.owasp.controller;
 
-import java.io.File;
 import java.io.IOException;
 
 import javax.servlet.http.HttpServletRequest;
@@ -21,8 +20,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import br.com.alura.owasp.dao.UsuarioDao;
 import br.com.alura.owasp.model.Role;
 import br.com.alura.owasp.model.Usuario;
-import br.com.alura.owasp.model.UsuarioDTO;
 import br.com.alura.owasp.retrofit.GoogleWebClient;
+import br.com.alura.owasp.validator.ImagemValidator;
 
 @Controller
 @Transactional
@@ -33,6 +32,9 @@ public class UsuarioController {
 	
 	@Autowired
 	private GoogleWebClient googleWebClient;
+	
+	@Autowired
+	private ImagemValidator imagemValidator;
 	
 	@InitBinder
 	public void initBinder(WebDataBinder binder) {
@@ -58,13 +60,17 @@ public class UsuarioController {
 			Model model, HttpSession session) throws IllegalStateException, IOException {
 
 		//Usuario usuarioRegistro = usuarioDTO.montaUsuario();
-		tratarImagem(imagem, usuarioRegistro, request);
-		usuarioRegistro.getRoles().add(new Role("ROLE_USER"));
+		boolean ehImagem = imagemValidator.tratarImagem(imagem, usuarioRegistro, request);
+		if(ehImagem) {
+			usuarioRegistro.getRoles().add(new Role("ROLE_USER"));
 
-		dao.salva(usuarioRegistro);
-		session.setAttribute("usuario", usuarioRegistro);
-		model.addAttribute("usuario", usuarioRegistro);
-		return "usuarioLogado";
+			dao.salva(usuarioRegistro);
+			session.setAttribute("usuario", usuarioRegistro);
+			model.addAttribute("usuario", usuarioRegistro);
+			return "usuarioLogado";
+		}
+		redirect.addFlashAttribute("mensagem", "A imagem passada é um vírus heheheeh");
+		return "redirect:/usuario";
 	}
 
 	@RequestMapping(value="/login",method=RequestMethod.POST)
@@ -98,12 +104,4 @@ public class UsuarioController {
 		return "usuario";
 	}
 
-	private void tratarImagem(MultipartFile imagem, Usuario usuario,
-			HttpServletRequest request) throws IllegalStateException, IOException {
-		usuario.setNomeImagem(imagem.getOriginalFilename());
-		File arquivo = new File(request.getServletContext().getRealPath(
-				"/image"), usuario.getNomeImagem());
-		imagem.transferTo(arquivo);
-
-	}
 }
